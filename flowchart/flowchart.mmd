@@ -2,7 +2,7 @@ flowchart TD
     Cliente["Cliente"] --> Ingesta["POST /ingestar"]
     Cliente --> Consulta["POST /consultar"]
 
-    Inicio["Inicio de la aplicación"] --> Cargar["Cargar índice FAISS"]
+    Inicio(["Inicio de la aplicación"]) --> Cargar["Cargar índice FAISS"]
     Cargar --> Motor["Motor RAG"]
 
     Ingesta --> Archivo["Archivo subido"]
