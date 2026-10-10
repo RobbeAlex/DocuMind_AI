@@ -1,0 +1,33 @@
+flowchart TD
+    Cliente["Cliente"] --> Ingesta["POST /ingestar"]
+    Cliente --> Consulta["POST /consultar"]
+
+    Inicio["Inicio de la aplicación"] --> Cargar["Cargar índice FAISS"]
+    Cargar --> Motor["Motor RAG"]
+
+    Ingesta --> Archivo["Archivo subido"]
+    Archivo --> Temporal["Guardar archivo temporal"]
+    Temporal --> Tipo{"Tipo de archivo"}
+
+    Tipo -->|PDF| PDF["Cargar con PyPDFLoader"]
+    Tipo -->|DOC o DOCX| DOCX["Cargar con Docx2txtLoader"]
+    Tipo -->|Otro| Texto["Cargar con TextLoader"]
+
+    PDF --> Fragmentar["Fragmentar documento"]
+    DOCX --> Fragmentar
+    Texto --> Fragmentar
+
+    Fragmentar --> Embeddings["Generar embeddings"]
+    Embeddings --> Indice["Crear o actualizar índice FAISS"]
+    Indice --> Guardar["Guardar índice en disco"]
+    Guardar --> ResultadoIngesta["Devolver resultado de ingesta"]
+
+    Consulta --> Peticion["Validar PeticionConsulta"]
+    Peticion --> Verificar{"¿LLM e índice disponibles?"}
+
+    Verificar -->|No| Error["Devolver error HTTP"]
+    Verificar -->|Sí| Recuperar["Recuperar los 3 fragmentos relevantes"]
+
+    Recuperar --> Prompt["Construir prompt con contexto"]
+    Prompt --> LLM["Invocar modelo Google Generative AI"]
+    LLM --> ResultadoConsulta["Devolver respuesta y contexto"]
