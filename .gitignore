@@ -1,0 +1,19 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Variables de entorno (¡NO SUBIR EL .env REAL!)
+.env
+
+# Archivos temporales
+temp_*
+
+# Base de datos vectorial (FAISS)
+faiss_index/
+
+# IDEs
+.vscode/
+.idea/
