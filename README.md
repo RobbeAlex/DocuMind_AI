@@ -7,6 +7,64 @@
 
 Un sistema avanzado de **Retrieval-Augmented Generation (RAG)** diseñado para procesar, vectorizar y consultar documentos de manera inteligente. Utilizando la potencia de **Google Gemini** y **FastAPI**, esta solución permite a los usuarios hacer preguntas en lenguaje natural sobre sus propios documentos (PDF, Word DOCX/DOC y TXT) a través de una interfaz visual intuitiva desarrollada con **Streamlit**.
 
+---
+
+## 📊 Arquitectura del Sistema
+
+El proyecto cuenta con una arquitectura moderna y desacoplada, separando claramente la interfaz de usuario del motor de inteligencia artificial.
+
+```mermaid
+flowchart LR
+    User([👤 Usuario]) <-->|Interactúa| UI[🖥️ Streamlit UI]
+    UI <-->|HTTP REST| API[⚡ FastAPI Backend]
+    
+    subgraph Lógica Core (Servidor)
+        API <--> RAG[🧠 LangChain Engine]
+        RAG <-->|Guarda/Busca| DB[(💾 FAISS Vector DB)]
+        RAG <-->|Genera Respuestas| LLM[☁️ Google Gemini]
+        RAG <-->|Crea Vectores| EMB[🤗 HuggingFace]
+    end
+```
+
+### Flujo de Trabajo (Ingesta y Consulta)
+
+El siguiente diagrama de secuencia ilustra cómo interactúan los componentes internamente cuando subes un documento frente a cuando realizas una consulta:
+
+```mermaid
+sequenceDiagram
+    actor Usuario
+    participant Streamlit
+    participant FastAPI
+    participant VectorDB as FAISS
+    participant Gemini as Google LLM
+
+    %% Flujo de Ingesta
+    rect rgb(230, 240, 255)
+        Note right of Usuario: Proceso de Ingesta de Documentos
+        Usuario->>Streamlit: Sube archivo (PDF/DOCX/TXT)
+        Streamlit->>FastAPI: POST /ingestar
+        FastAPI->>FastAPI: Extrae texto y divide en fragmentos (Chunks)
+        FastAPI->>VectorDB: Genera Embeddings y guarda fragmentos
+        VectorDB-->>FastAPI: OK (Persistido en disco)
+        FastAPI-->>Streamlit: "Documento procesado exitosamente"
+    end
+
+    %% Flujo de Consulta
+    rect rgb(240, 255, 230)
+        Note right of Usuario: Proceso de Consulta (RAG)
+        Usuario->>Streamlit: Hace una pregunta
+        Streamlit->>FastAPI: POST /consultar {pregunta}
+        FastAPI->>VectorDB: Búsqueda de similitud (Top-K fragmentos)
+        VectorDB-->>FastAPI: Devuelve contexto relevante
+        FastAPI->>Gemini: Prompt con (Contexto + Pregunta)
+        Gemini-->>FastAPI: Genera respuesta informada
+        FastAPI-->>Streamlit: Respuesta limpia + Contexto extraído
+        Streamlit-->>Usuario: Muestra la respuesta en pantalla
+    end
+```
+
+---
+
 ## ✨ Ventajas y Fortalezas del Proyecto
 
 - **Arquitectura Modular y Escalable**: Código limpio y organizado utilizando principios de diseño de software. Separación clara de responsabilidades entre las rutas de la API, la lógica del negocio (IA) y los modelos de datos.
