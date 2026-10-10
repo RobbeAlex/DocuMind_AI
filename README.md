@@ -14,16 +14,82 @@ Un sistema avanzado de **Retrieval-Augmented Generation (RAG)** diseñado para p
 El proyecto cuenta con una arquitectura moderna y desacoplada, separando claramente la interfaz de usuario del motor de inteligencia artificial.
 
 ```mermaid
-flowchart LR
-    User([👤 Usuario]) <-->|Interactúa| UI[🖥️ Streamlit UI]
-    UI <-->|HTTP REST| API[⚡ FastAPI Backend]
-    
-    subgraph Lógica Core (Servidor)
-        API <--> RAG[🧠 LangChain Engine]
-        RAG <-->|Guarda/Busca| DB[(💾 FAISS Vector DB)]
-        RAG <-->|Genera Respuestas| LLM[☁️ Google Gemini]
-        RAG <-->|Crea Vectores| EMB[🤗 HuggingFace]
+flowchart TD
+    Inicio(["Inicio"])
+
+    subgraph Configuracion["Configuración"]
+        Config[/config.py<br/>Define API key y modelos/]
+        Settings{{"Settings<br/>Carga variables de entorno"}}
+        Config --> Settings
     end
+
+    subgraph API["API principal"]
+        Main(["main.py<br/>Crea FastAPI y define endpoints"])
+        Peticion[/schemas/requests.py<br/>Valida la pregunta recibida/]
+    end
+
+    subgraph MotorRAG["Motor RAG"]
+        Rag[["services/rag.py<br/>Coordina ingesta y consultas"]]
+        Cargar{"¿Existe índice FAISS?"}
+        Tipo{"¿Qué tipo de archivo?"}
+        PDF["PyPDFLoader<br/>Lee PDF"]
+        DOCX["Docx2txtLoader<br/>Lee DOC/DOCX"]
+        Texto["TextLoader<br/>Lee texto"]
+        Fragmentar["Divide el documento<br/>en fragmentos"]
+        Embeddings["HuggingFaceEmbeddings<br/>Convierte texto en vectores"]
+        Indice[("FAISS<br/>Base de datos vectorial")]
+        Recuperar["Recupera los 3 fragmentos<br/>más relevantes"]
+        Prompt["Construye el prompt<br/>con el contexto"]
+        LLM["Google Generative AI<br/>Genera la respuesta"]
+    end
+
+    Respuesta[/Respuesta JSON<br/>Pregunta, contexto y respuesta/]
+    Error(["Error HTTP"])
+
+    Inicio --> Main
+    Settings --> Rag
+    Main -->|Startup| Cargar
+    Cargar -->|Sí| Indice
+    Cargar -->|No| Rag
+
+    Main -->|POST /ingestar| Rag
+    Rag --> Tipo
+    Tipo -->|PDF| PDF
+    Tipo -->|DOC o DOCX| DOCX
+    Tipo -->|Otro formato| Texto
+
+    PDF --> Fragmentar
+    DOCX --> Fragmentar
+    Texto --> Fragmentar
+    Fragmentar --> Embeddings
+    Embeddings --> Indice
+    Indice -->|Guardar en disco| Rag
+
+    Main -->|POST /consultar| Peticion
+    Peticion --> Rag
+    Rag -->|Verifica configuración| Cargar
+    Cargar -->|Índice disponible| Recuperar
+    Recuperar --> Prompt
+    Prompt -->|Usa MODEL_NAME| LLM
+    LLM --> Respuesta
+
+    Rag -->|Sin API key o índice| Error
+
+    classDef inicio fill:#F8D7DA,stroke:#B85C70,color:#4A2630
+    classDef archivo fill:#DDEBF7,stroke:#6B9AC4,color:#1F3A50
+    classDef proceso fill:#E2F0D9,stroke:#82A66B,color:#29401F
+    classDef decision fill:#FFF2CC,stroke:#C9A227,color:#554500
+    classDef datos fill:#EADCF8,stroke:#9875B8,color:#38264D
+    classDef salida fill:#FCE4D6,stroke:#C9825B,color:#542D1E
+    classDef error fill:#F4CCCC,stroke:#B85450,color:#4A1715
+
+    class Inicio inicio
+    class Config,Main,Peticion archivo
+    class Settings,Rag,PDF,DOCX,Texto,Fragmentar,Embeddings,Recuperar,Prompt,LLM proceso
+    class Cargar,Tipo decision
+    class Indice datos
+    class Respuesta salida
+    class Error error
 ```
 
 ### Flujo de Trabajo (Ingesta y Consulta)
