@@ -149,6 +149,8 @@ sequenceDiagram
 │   └── requests.py        # Modelos de Pydantic para el tipado estricto
 ├── services/
 │   └── rag.py             # Lógica core de IA: LangChain, FAISS y Gemini
+├── flowchart/
+│   └── flowchart.mmd      # Diagrama de flujo de interacción entre los archivos
 ├── main.py                # Entrypoint de la API (FastAPI)
 ├── ui.py                  # Interfaz de usuario (Streamlit)
 ├── requirements.txt       # Dependencias estrictas del proyecto
