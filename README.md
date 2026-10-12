@@ -200,9 +200,38 @@ streamlit run ui.py
 ```
 *Se abrirá automáticamente en tu navegador web. Desde ahí podrás subir tus documentos PDF/TXT y comenzar a hacer preguntas a la IA.*
 
+---
+
+## 🐳 Despliegue con Docker y Docker Compose
+
+También puedes ejecutar todo el sistema (Backend + Frontend + Base de Datos Vectorial) empaquetado en contenedores Docker de forma automática.
+
+### 1. Requisitos
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución.
+- Archivo `.env` configurado con tu `GOOGLE_API_KEY`.
+
+### 2. Levantar los Contenedores
+Ejecuta en la raíz del proyecto:
+```bash
+docker compose up --build
+```
+*(o en segundo plano con `docker compose up --build -d`)*
+
+### 3. Acceso a las Aplicaciones
+- **Frontend (Streamlit)**: [http://localhost:8501](http://localhost:8501)
+- **Backend (FastAPI)**: [http://localhost:8000](http://localhost:8000)
+- **Documentación Swagger**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### 4. Detener los Contenedores
+```bash
+docker compose down
+```
+> **Nota de persistencia:** Los documentos y la base de datos vectorial se sincronizan automáticamente en la carpeta local `./faiss_index` mediante volúmenes, por lo que tus índices permanecen guardados incluso si apagas los contenedores.
+
 ## ⚙️ Stack Tecnológico
 * **Backend**: FastAPI, Uvicorn, Pydantic
 * **Frontend**: Streamlit
+* **Contenedores**: Docker, Docker Compose
 * **IA y NLP**: LangChain, HuggingFace (Embeddings), Google Generative AI (Gemini)
 * **Base de Datos Vectorial**: FAISS
 
