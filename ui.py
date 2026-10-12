@@ -42,29 +42,40 @@ if st.button("Consultar"):
                     st.markdown("### Respuesta:")
                     
                     respuesta_cruda = data["respuesta"]
-                    texto_final = respuesta_cruda
-                    
-                    # Intentar extraer solo el texto si la respuesta viene en formato dict o JSON
-                    import json
-                    import ast
-                    if isinstance(respuesta_cruda, dict):
-                        texto_final = respuesta_cruda.get("text", respuesta_cruda)
-                    elif isinstance(respuesta_cruda, str):
-                        try:
-                            # 1. Intentar como JSON estricto
-                            parsed = json.loads(respuesta_cruda)
-                            if isinstance(parsed, dict) and "text" in parsed:
-                                texto_final = parsed["text"]
-                        except json.JSONDecodeError:
-                            try:
-                                # 2. Intentar evaluar como diccionario de Python (si usa comillas simples)
-                                parsed = ast.literal_eval(respuesta_cruda)
-                                if isinstance(parsed, dict) and "text" in parsed:
-                                    texto_final = parsed["text"]
-                            except (SyntaxError, ValueError):
-                                pass
-                            
-                    st.write(texto_final)
+
+                    def extraer_solo_texto(valor):
+                        import json
+                        import ast
+
+                        if isinstance(valor, str):
+                            # Si es un string, verificar si viene codificado como JSON o dict/list literal
+                            valor_str = valor.strip()
+                            if (valor_str.startswith("{") and valor_str.endswith("}")) or (valor_str.startswith("[") and valor_str.endswith("]")):
+                                try:
+                                    parsed = json.loads(valor_str)
+                                    return extraer_solo_texto(parsed)
+                                except (json.JSONDecodeError, TypeError):
+                                    try:
+                                        parsed = ast.literal_eval(valor_str)
+                                        return extraer_solo_texto(parsed)
+                                    except (SyntaxError, ValueError):
+                                        pass
+                            return valor
+                        elif isinstance(valor, list):
+                            partes = [extraer_solo_texto(elem) for elem in valor]
+                            return "\n\n".join([p for p in partes if p])
+                        elif isinstance(valor, dict):
+                            if "text" in valor:
+                                return extraer_solo_texto(valor["text"])
+                            elif "content" in valor:
+                                return extraer_solo_texto(valor["content"])
+                            # Si no tiene 'text', extraer solo valores string ignorando 'type', 'extras', etc.
+                            candidatos = [str(v) for k, v in valor.items() if k not in ("type", "extras", "signature")]
+                            return "\n\n".join(candidatos) if candidatos else str(valor)
+                        return str(valor)
+
+                    texto_final = extraer_solo_texto(respuesta_cruda)
+                    st.markdown(texto_final)
                     
                     with st.expander("Ver contexto utilizado por la IA"):
                         st.text(data["contexto_utilizado"])

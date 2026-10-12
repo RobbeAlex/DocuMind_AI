@@ -7,6 +7,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.output_parsers import StrOutputParser
 from core.config import settings
 
 class RagEngine:
@@ -95,8 +96,14 @@ class RagEngine:
             raise HTTPException(status_code=400, detail="La base de conocimiento está vacía. Ingesta documentos primero.")
 
         try:
-            # Configurar el recuperador
-            recuperador = self.vector_store.as_retriever(search_kwargs={"k": 3})
+            # Configurar el recuperador con MMR (Maximal Marginal Relevance)
+            recuperador = self.vector_store.as_retriever(
+                search_type="mmr",
+                search_kwargs={
+                    "k": 4,          
+                    "fetch_k": 10    
+                }
+            )
 
             plantilla_sistema = (
                 "Eres un asistente corporativo de inteligencia artificial. "
@@ -115,14 +122,43 @@ class RagEngine:
             documentos_recuperados = recuperador.invoke(pregunta)
             contexto_extraido = "\n\n".join([doc.page_content for doc in documentos_recuperados])
 
-            # Invocar LLM
+            # Invocar LLM (Reemplaza las líneas originales con estas)
             prompt_form = prompt.invoke({"context": contexto_extraido, "input": pregunta})
             respuesta_llm = self.llm_modelo.invoke(prompt_form)
+
+            # Limpiar la respuesta extrayendo estrictamente el texto
+            contenido = respuesta_llm.content
+
+            def extraer_texto(c):
+                if isinstance(c, str):
+                    return c
+                elif isinstance(c, list):
+                    partes = []
+                    for elemento in c:
+                        if isinstance(elemento, str):
+                            partes.append(elemento)
+                        elif isinstance(elemento, dict):
+                            if "text" in elemento:
+                                partes.append(elemento["text"])
+                            elif "content" in elemento:
+                                partes.append(str(elemento["content"]))
+                        elif hasattr(elemento, "text"):
+                            partes.append(str(elemento.text))
+                        elif hasattr(elemento, "content"):
+                            partes.append(str(elemento.content))
+                    return "\n\n".join(partes)
+                elif isinstance(c, dict):
+                    return c.get("text", c.get("content", str(c)))
+                return str(c)
+
+            texto_limpio = extraer_texto(contenido).strip()
+            if texto_limpio.startswith("```json"):
+                texto_limpio = texto_limpio.replace("```json", "").replace("```", "").strip()
 
             return {
                 "pregunta": pregunta,
                 "contexto_utilizado": contexto_extraido,
-                "respuesta": respuesta_llm.content
+                "respuesta": texto_limpio
             }
 
         except Exception as e:
