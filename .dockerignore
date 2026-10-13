@@ -12,8 +12,9 @@ venv/
 .gitattributes
 .idea/
 .vscode/
+.agents/
+.claude/
 .DS_Store
 *.log
 temp_*
-faiss_index/*.faiss
-faiss_index/*.pkl
+faiss_index/

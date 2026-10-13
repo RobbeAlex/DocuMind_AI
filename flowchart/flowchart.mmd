@@ -1,42 +1,59 @@
 flowchart TD
     Inicio(["Inicio"])
 
+    subgraph Cliente["Interfaz de Usuario"]
+        UI["ui.py (Streamlit)<br/>Gestión de archivos y consultas"]
+    end
+
     subgraph Configuracion["Configuración"]
-        Config[/config.py<br/>Define API key y modelos/]
-        Settings{{"Settings<br/>Carga variables de entorno"}}
+        Config[/core/config.py<br/>Define API key y modelos/]
+        Settings{{"Settings<br/>Carga variables de entorno (.env)"}}
         Config --> Settings
     end
 
-    subgraph API["API principal"]
-        Main(["main.py<br/>Crea FastAPI y define endpoints"])
-        Peticion[/schemas/requests.py<br/>Valida la pregunta recibida/]
+    subgraph API["API Principal (FastAPI v2.0)"]
+        Main(["main.py<br/>Endpoints y ciclo de vida (lifespan)"])
+        Peticion[/schemas/requests.py<br/>PeticionConsulta: pregunta + documento/]
     end
 
-    subgraph MotorRAG["Motor RAG"]
-        Rag[["services/rag.py<br/>Coordina ingesta y consultas"]]
+    subgraph MotorRAG["Motor RAG (services/rag.py)"]
+        Rag[["RagEngine (rag_engine)<br/>Coordina ingesta, catálogo y consultas"]]
         Cargar{"¿Existe índice FAISS?"}
+        Reemplazar{"¿reemplazar == True?"}
+        Limpiar["limpiar_base_datos()<br/>Borra memoria y faiss_index/"]
         Tipo{"¿Qué tipo de archivo?"}
-        PDF["PyPDFLoader<br/>Lee PDF"]
+        PDF["PyPDFLoader<br/>Lee PDF y páginas"]
         DOCX["Docx2txtLoader<br/>Lee DOC/DOCX"]
-        Texto["TextLoader<br/>Lee texto"]
-        Fragmentar["Divide el documento<br/>en fragmentos"]
-        Embeddings["HuggingFaceEmbeddings<br/>Convierte texto en vectores"]
-        Indice[("FAISS<br/>Base de datos vectorial")]
-        Recuperar["Recupera los 3 fragmentos<br/>más relevantes"]
-        Prompt["Construye el prompt<br/>con el contexto"]
-        LLM["Google Generative AI<br/>Genera la respuesta"]
+        Texto["TextLoader<br/>Lee TXT (UTF-8)"]
+        Fragmentar["RecursiveCharacterTextSplitter<br/>Fragmenta (1000 chars / 200 overlap)"]
+        Embeddings["HuggingFaceEmbeddings<br/>all-MiniLM-L6-v2"]
+        Indice[("FAISS + documentos.json<br/>Base de datos vectorial persistente")]
+        Recuperar["Búsqueda MMR (k=4)<br/>Con filtro opcional por documento"]
+        Prompt["ChatPromptTemplate<br/>Contexto citado + reglas estrictas"]
+        LLM["Google Generative AI<br/>Genera respuesta fundamentada"]
     end
 
-    Respuesta[/Respuesta JSON<br/>Pregunta, contexto y respuesta/]
-    Error(["Error HTTP"])
+    Respuesta[/Respuesta JSON<br/>Pregunta, respuesta, fuentes y contexto/]
+    ListaDocs[/Respuesta JSON<br/>Catálogo de documentos/]
+    Error(["Error HTTP (400 / 500)"])
 
-    Inicio --> Main
+    Inicio --> UI
+    UI -->|HTTP REST| Main
     Settings --> Rag
-    Main -->|Startup| Cargar
+    Main -->|Startup lifespan| Cargar
     Cargar -->|Sí| Indice
     Cargar -->|No| Rag
 
-    Main -->|POST /ingestar| Rag
+    Main -->|GET /documentos| Rag
+    Rag --> ListaDocs
+
+    Main -->|POST /limpiar| Limpiar
+    Limpiar --> Indice
+
+    Main -->|POST /ingestar| Reemplazar
+    Reemplazar -->|Sí| Limpiar
+    Reemplazar -->|No| Rag
+    Limpiar --> Rag
     Rag --> Tipo
     Tipo -->|PDF| PDF
     Tipo -->|DOC o DOCX| DOCX
@@ -51,13 +68,13 @@ flowchart TD
 
     Main -->|POST /consultar| Peticion
     Peticion --> Rag
-    Rag -->|Verifica configuración| Cargar
+    Rag -->|Verifica API key e índice| Cargar
     Cargar -->|Índice disponible| Recuperar
     Recuperar --> Prompt
     Prompt -->|Usa MODEL_NAME| LLM
     LLM --> Respuesta
 
-    Rag -->|Sin API key o índice| Error
+    Rag -->|Sin API key o índice vacío| Error
 
     classDef inicio fill:#F8D7DA,stroke:#B85C70,color:#4A2630
     classDef archivo fill:#DDEBF7,stroke:#6B9AC4,color:#1F3A50
@@ -68,9 +85,9 @@ flowchart TD
     classDef error fill:#F4CCCC,stroke:#B85450,color:#4A1715
 
     class Inicio inicio
-    class Config,Main,Peticion archivo
-    class Settings,Rag,PDF,DOCX,Texto,Fragmentar,Embeddings,Recuperar,Prompt,LLM proceso
-    class Cargar,Tipo decision
+    class UI,Config,Main,Peticion archivo
+    class Settings,Rag,Limpiar,PDF,DOCX,Texto,Fragmentar,Embeddings,Recuperar,Prompt,LLM proceso
+    class Cargar,Reemplazar,Tipo decision
     class Indice datos
-    class Respuesta salida
+    class Respuesta,ListaDocs salida
     class Error error
